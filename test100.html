@@ -16,7 +16,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 </head>
-<body class="min-h-screen bg-cover bg-center" style="background-image: url('https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS8B819OtyDg-BVaRpVQYwSAWAd3Da-qZD3gA&s);">
+<body class="min-h-screen bg-cover bg-center" style="background-image: url('https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS8B819OtyDg-BVaRpVQYwSAWAd3Da-qZD3gA&s');">
 
 <!-- AUTH -->
 <div id="auth" class="flex items-center justify-center min-h-screen bg-black/40">
@@ -93,20 +93,131 @@
 </div>
 
 <script>
-const backendUrl = "https://your-render-url.onrender.com"; // <-- Replace with Render backend
 let currentUser = null;
 let currentRole = null;
 
-// Map
+// Map and markers
 let map, markersLayer;
 function initMap() {
-  map = L.map('map').setView([20.5937, 78.9629], 5);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-  markersLayer = L.layerGroup().addTo(map);
+    // Focus on University of Perpetual Help GMA Campus
+    map = L.map('map').setView([14.28630, 121.00253], 16);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+    markersLayer = L.layerGroup().addTo(map);
+
+    // Arrow marker pointing at campus
+    const arrowIcon = L.icon({
+        iconUrl: 'https://cdn-icons-png.flaticon.com/512/32/32339.png', 
+        iconSize: [20, 20],
+        iconAnchor: [20, 20]
+    });
+    L.marker([14.28630, 121.00253], { icon: arrowIcon })
+      .bindPopup("<b>University of Perpetual Help GMA Campus</b><br>San Gabriel, GMA, Cavite")
+      .addTo(map);
 }
-function updateMap(items) {
+
+// Convert file to base64
+function toBase64(file){ 
+    return new Promise((res,rej)=>{ 
+        const r=new FileReader(); r.readAsDataURL(file); r.onload=()=>res(r.result); r.onerror=e=>rej(e); 
+    }); 
+}
+
+// Local storage auth
+function register() {
+  let users = JSON.parse(localStorage.getItem('users'))||[];
+  const emailVal=email.value, passVal=password.value, roleVal=document.getElementById('role').value;
+  if(users.find(u=>u.email===emailVal)) return alert("User exists");
+  users.push({email:emailVal,password:passVal,role:roleVal});
+  localStorage.setItem('users',JSON.stringify(users));
+  alert("Registered!");
+}
+
+function login() {
+  let users = JSON.parse(localStorage.getItem('users'))||[];
+  const emailVal=email.value, passVal=password.value;
+  const user = users.find(u=>u.email===emailVal && u.password===passVal);
+  if(!user) return alert("Invalid login");
+  currentUser=emailVal;
+  currentRole=user.role;
+  localStorage.setItem('session', emailVal);
+  localStorage.setItem('role', currentRole);
+  showApp();
+}
+
+function logout() { 
+  localStorage.removeItem('session'); 
+  localStorage.removeItem('role'); 
+  location.reload(); 
+}
+
+function checkSession() {
+  const s = localStorage.getItem('session'), r = localStorage.getItem('role');
+  if(s){ currentUser=s; currentRole=r; showApp(); }
+}
+
+function showApp() {
+  auth.classList.add('hidden'); 
+  profilePage.classList.add('hidden'); 
+  app.classList.remove('hidden');
+  document.getElementById('roleDisplay').textContent=currentRole;
+  initMap();
+  loadItems();
+}
+
+// Profile
+function showProfilePage() {
+  app.classList.add('hidden'); 
+  profilePage.classList.remove('hidden');
+  profileEmail.textContent=currentUser;
+  profileRole.textContent=currentRole;
+  const items = JSON.parse(localStorage.getItem('items'))||[];
+  const myItems = items.filter(i=>i.user===currentUser);
+  profileItems.innerHTML='';
+  myItems.forEach(item=>{
+    const div = document.createElement('div'); div.className='border p-2 rounded-lg';
+    div.textContent = `${item.name} (${item.type}) - ${item.location}`;
+    profileItems.appendChild(div);
+  });
+}
+function closeProfilePage(){ profilePage.classList.add('hidden'); showApp(); }
+
+// Add item
+async function addItem() {
+  const nameVal=name.value, descVal=desc.value, typeVal=type.value, locationVal=location.value, contactVal=contact.value, file=image.files[0];
+  if(!nameVal||!descVal||!file||!locationVal||!contactVal) return alert("Fill all fields");
+  const img = await toBase64(file);
+  let items = JSON.parse(localStorage.getItem('items'))||[];
+  items.push({id:Date.now(),name:nameVal,desc:descVal,type:typeVal,location:locationVal,contact:contactVal,user:currentUser,role:currentRole,image:img});
+  localStorage.setItem('items', JSON.stringify(items));
+
+  name.value=''; desc.value=''; location.value=''; contact.value=''; image.value='';
+  loadItems();
+}
+
+// Load items
+function loadItems() {
+  const container = document.getElementById('items'), searchVal=document.getElementById('search').value.toLowerCase();
+  container.innerHTML='';
+  let items = JSON.parse(localStorage.getItem('items'))||[];
+  const filtered = items.filter(i=>i.name.toLowerCase().includes(searchVal)||i.desc.toLowerCase().includes(searchVal)||i.location.toLowerCase().includes(searchVal));
+  
+  filtered.reverse().forEach(item=>{
+    const div=document.createElement('div'); div.className="bg-white rounded-2xl shadow overflow-hidden";
+    div.innerHTML = `
+      <img src="${item.image}" class="w-full h-40 object-cover">
+      <div class="p-4">
+        <div class="flex justify-between"><h3 class="font-bold">${item.name}</h3><span class="text-xs px-2 py-1 rounded-full ${item.type==='lost'?'bg-red-100 text-red-600':'bg-green-100 text-green-600'}">${item.type}</span></div>
+        <p class="text-sm mt-1">${item.desc}</p>
+        <p class="text-xs text-gray-500 mt-1"><i class="fas fa-map-marker-alt"></i> ${item.location}</p>
+        <p class="text-xs text-gray-500"><i class="fas fa-phone"></i> ${item.contact}</p>
+        <p class="text-xs text-gray-400">Role: ${item.role}</p>
+      </div>`;
+    container.appendChild(div);
+  });
+
+  // Update map markers
   markersLayer.clearLayers();
-  items.forEach(item=>{
+  filtered.forEach(item=>{
     fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(item.location)}`)
       .then(res=>res.json())
       .then(data=>{
@@ -115,90 +226,6 @@ function updateMap(items) {
           L.marker([lat,lon]).bindPopup(`<b>${item.name} (${item.type})</b><br>${item.desc}<br>Contact: ${item.contact}<br>Role: ${item.role}`).addTo(markersLayer);
         }
       });
-  });
-}
-
-// Auth
-function register() {
-  let users=JSON.parse(localStorage.getItem('users'))||[];
-  const emailVal=email.value, passVal=password.value, roleVal=document.getElementById('role').value;
-  if(users.find(u=>u.email===emailVal)) return alert("User exists");
-  users.push({email:emailVal,password:passVal,role:roleVal});
-  localStorage.setItem('users', JSON.stringify(users));
-  alert("Registered!");
-}
-function login() {
-  let users=JSON.parse(localStorage.getItem('users'))||[];
-  const emailVal=email.value, passVal=password.value;
-  let user=users.find(u=>u.email===emailVal && u.password===passVal);
-  if(!user) return alert("Invalid login");
-  currentUser=emailVal; currentRole=user.role;
-  localStorage.setItem('session',emailVal);
-  localStorage.setItem('role',currentRole);
-  showApp();
-}
-function logout() { localStorage.removeItem('session'); localStorage.removeItem('role'); location.reload(); }
-function checkSession() {
-  const s=localStorage.getItem('session'), r=localStorage.getItem('role');
-  if(s){currentUser=s;currentRole=r;showApp();}
-}
-
-// App
-function showApp() {
-  auth.classList.add('hidden'); profilePage.classList.add('hidden'); app.classList.remove('hidden');
-  document.getElementById('roleDisplay').textContent=currentRole;
-  loadItems();
-  initMap();
-}
-
-// Profile
-function showProfilePage() {
-  app.classList.add('hidden'); profilePage.classList.remove('hidden');
-  profileEmail.textContent=currentUser;
-  profileRole.textContent=currentRole;
-  fetch(`${backendUrl}/items/${currentUser}`).then(res=>res.json()).then(data=>{
-    profileItems.innerHTML='';
-    data.forEach(item=>{
-      const div=document.createElement('div'); div.className='border p-2 rounded-lg';
-      div.textContent=`${item.name} (${item.type}) - ${item.location}`;
-      profileItems.appendChild(div);
-    });
-  });
-}
-function closeProfilePage(){ profilePage.classList.add('hidden'); showApp(); }
-
-// Convert file to base64
-function toBase64(file){ return new Promise((res,rej)=>{ const r=new FileReader(); r.readAsDataURL(file); r.onload=()=>res(r.result); r.onerror=e=>rej(e); }); }
-
-// Add item
-async function addItem() {
-  const name=name.value, desc=desc.value, type=type.value, location=location.value, contact=contact.value, file=image.files[0];
-  if(!name||!desc||!file||!location||!contact) return alert("Fill all fields");
-  const img=await toBase64(file);
-  await fetch(`${backendUrl}/items`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,desc,type,location,contact,user:currentUser,role:currentRole,image:img})});
-  name.value=''; desc.value=''; location.value=''; contact.value='';
-  loadItems();
-}
-
-// Load items
-function loadItems() {
-  const container=document.getElementById('items'), search=document.getElementById('search').value.toLowerCase();
-  container.innerHTML='';
-  fetch(`${backendUrl}/items`).then(res=>res.json()).then(data=>{
-    const filtered=data.filter(i=>i.name.toLowerCase().includes(search)||i.desc.toLowerCase().includes(search)||i.location.toLowerCase().includes(search));
-    filtered.reverse().forEach(item=>{
-      const div=document.createElement('div'); div.className="bg-white rounded-2xl shadow overflow-hidden";
-      div.innerHTML=`<img src="${item.image}" class="w-full h-40 object-cover">
-        <div class="p-4">
-        <div class="flex justify-between"><h3 class="font-bold">${item.name}</h3><span class="text-xs px-2 py-1 rounded-full ${item.type==='lost'?'bg-red-100 text-red-600':'bg-green-100 text-green-600'}">${item.type}</span></div>
-        <p class="text-sm mt-1">${item.desc}</p>
-        <p class="text-xs text-gray-500 mt-1"><i class="fas fa-map-marker-alt"></i> ${item.location}</p>
-        <p class="text-xs text-gray-500"><i class="fas fa-phone"></i> ${item.contact}</p>
-        <p class="text-xs text-gray-400">Role: ${item.role}</p>
-        </div>`;
-      container.appendChild(div);
-    });
-    updateMap(filtered);
   });
 }
 
