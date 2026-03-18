@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Smart Lost and Found System</title>
+
+    <style>
+        body {
+            font-family: Arial;
+            margin: 0;
+            background: #f0f2f5;
+        }
+
+        header {
+            background: #1a237e;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        nav {
+            background: #283593;
+            padding: 10px;
+            text-align: center;
+        }
+
+        nav a {
+            color: white;
+            margin: 15px;
+            text-decoration: none;
+        }
+
+        nav a:hover {
+            color: yellow;
+        }
+
+        section {
+            padding: 20px;
+        }
+
+        .card {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px gray;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+        }
+
+        button {
+            background: #1a237e;
+            color: white;
+            padding: 10px;
+            border: none;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: yellow;
+            color: black;
+        }
+
+        footer {
+            background: #1a237e;
+            color: white;
+            text-align: center;
+            padding: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h1>Smart Lost and Found System</h1>
+    <p>A Capstone Project for Item Recovery and Tracking</p>
+</header>
+
+<nav>
+    <a href="#home">Home</a>
+    <a href="#about">About</a>
+    <a href="#report">Report</a>
+    <a href="#items">Items</a>
+    <a href="#contact">Contact</a>
+</nav>
+
+<section id="home">
+    <div class="card">
+        <h2>Introduction</h2>
+        <p>This system helps users report, track, and recover lost items efficiently using a centralized platform.</p>
+    </div>
+</section>
+
+<section id="about">
+    <div class="card">
+        <h2>About the Study</h2>
+        <p><b>Problem:</b> Many lost items are not returned due to lack of system.</p>
+        <p><b>Objective:</b> To create a digital lost and found platform.</p>
+        <p><b>Significance:</b> Helps students and community recover belongings faster.</p>
+    </div>
+</section>
+
+<section id="report">
+    <div class="card">
+        <h2>Report Lost or Found Item</h2>
+
+        <form onsubmit="addItem(event)">
+            <select id="type">
+                <option>Lost</option>
+                <option>Found</option>
+            </select>
+
+            <input type="text" id="name" placeholder="Item Name" required>
+            <textarea id="desc" placeholder="Description" required></textarea>
+            <input type="text" id="location" placeholder="Location" required>
+            <input type="text" id="contact" placeholder="Contact Info" required>
+
+            <button type="submit">Submit</button>
+        </form>
+
+        <p id="msg"></p>
+    </div>
+</section>
+
+<section id="items">
+    <div class="card">
+        <h2>Reported Items</h2>
+
+        <input type="text" id="search" placeholder="Search item..." onkeyup="searchItem()">
+
+        <ul id="list">
+            <li>Lost - Phone - Classroom</li>
+        </ul>
+    </div>
+</section>
+
+<section id="contact">
+    <div class="card">
+        <h2>Contact</h2>
+        <p>Name: Your Name</p>
+        <p>Email: your@email.com</p>
+    </div>
+</section>
+
+<footer>
+    <p>© 2026 Smart Lost and Found System</p>
+</footer>
+
+<script>
+function addItem(event) {
+    event.preventDefault();
+
+    let type = document.getElementById("type").value;
+    let name = document.getElementById("name").value;
+    let location = document.getElementById("location").value;
+
+    let list = document.getElementById("list");
+    let item = document.createElement("li");
+
+    item.textContent = type + " - " + name + " - " + location;
+    list.appendChild(item);
+
+    document.getElementById("msg").textContent = "Item successfully added!";
+}
+
+function searchItem() {
+    let input = document.getElementById("search").value.toLowerCase();
+    let items = document.querySelectorAll("#list li");
+
+    items.forEach(item => {
+        item.style.display = item.textContent.toLowerCase().includes(input)
+            ? ""
+            : "none";
+    });
+}
+</script>
+
+</body>
+</html>
