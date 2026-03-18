@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Search % Found</title>
+
+<!-- Tailwind -->
+<script src="https://cdn.tailwindcss.com"></script>
+
+<!-- Font Awesome -->
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+<!-- Leaflet Map -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+</head>
+<body class="min-h-screen bg-cover bg-center" style="background-image: url('https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS8B819OtyDg-BVaRpVQYwSAWAd3Da-qZD3gA&s);">
+
+<!-- AUTH -->
+<div id="auth" class="flex items-center justify-center min-h-screen bg-black/40">
+  <div class="bg-white p-8 rounded-2xl shadow-xl w-80">
+    <h2 class="text-2xl font-bold mb-4 text-center">Search % Found</h2>
+
+    <select id="role" class="w-full border p-2 mb-4 rounded-lg">
+      <option value="student">Student</option>
+      <option value="teacher">Teacher</option>
+      <option value="faculty">Faculty</option>
+      <option value="parent">Parent</option>
+    </select>
+
+    <input id="email" class="w-full border p-2 mb-2 rounded-lg" placeholder="Email">
+    <input id="password" type="password" class="w-full border p-2 mb-4 rounded-lg" placeholder="Password">
+    <button onclick="login()" class="bg-indigo-600 text-white w-full py-2 mb-2 rounded-lg">Login</button>
+    <button onclick="register()" class="bg-green-500 text-white w-full py-2 rounded-lg">Register</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" class="hidden max-w-6xl mx-auto p-6">
+
+  <!-- NAV -->
+  <div class="flex justify-between items-center mb-6">
+    <div>
+      <h1 class="text-3xl font-bold">Search % Found</h1>
+      <p class="text-sm text-gray-500">Role: <span id="roleDisplay"></span></p>
+    </div>
+    <div class="flex gap-2">
+      <button onclick="showProfilePage()" class="bg-gray-200 px-3 py-2 rounded-lg">Profile</button>
+      <button onclick="logout()" class="bg-red-500 text-white px-4 py-2 rounded-lg">Logout</button>
+    </div>
+  </div>
+
+  <!-- SEARCH BAR -->
+  <div class="mb-6">
+    <input id="search" oninput="loadItems()" class="w-full p-3 rounded-xl border" placeholder="Search items...">
+  </div>
+
+  <!-- MAP -->
+  <div id="map" class="w-full h-96 rounded-2xl mb-6"></div>
+
+  <!-- FORM -->
+  <div class="bg-white p-5 rounded-2xl shadow mb-6">
+    <h2 class="font-bold text-lg mb-3">Report Item</h2>
+    <div class="grid md:grid-cols-2 gap-3">
+      <input id="name" class="border p-2 rounded-lg" placeholder="Item name">
+      <select id="type" class="border p-2 rounded-lg">
+        <option value="lost">Lost</option>
+        <option value="found">Found</option>
+      </select>
+    </div>
+
+    <textarea id="desc" class="w-full border p-2 rounded-lg mt-3" placeholder="Description"></textarea>
+    <input id="location" class="w-full border p-2 rounded-lg mt-3" placeholder="Location">
+    <input id="contact" class="w-full border p-2 rounded-lg mt-3" placeholder="Contact Info">
+    <input type="file" id="image" class="mt-3">
+    <button onclick="addItem()" class="mt-3 bg-indigo-600 text-white px-4 py-2 rounded-lg">Submit</button>
+  </div>
+
+  <!-- ITEMS -->
+  <div id="items" class="grid md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+</div>
+
+<!-- PROFILE PAGE -->
+<div id="profilePage" class="hidden max-w-md mx-auto mt-10 bg-white p-6 rounded-2xl shadow-xl">
+  <h2 class="text-2xl font-bold mb-4">My Profile</h2>
+  <p class="mb-2"><strong>Email:</strong> <span id="profileEmail"></span></p>
+  <p class="mb-2"><strong>Role:</strong> <span id="profileRole"></span></p>
+  <p class="mb-2"><strong>My Items:</strong></p>
+  <div id="profileItems" class="space-y-2 max-h-64 overflow-auto border p-2 rounded-lg"></div>
+  <button onclick="closeProfilePage()" class="mt-4 bg-indigo-600 text-white px-4 py-2 rounded-lg">Back</button>
+</div>
+
+<script>
+const backendUrl = "https://your-render-url.onrender.com"; // <-- Replace with Render backend
+let currentUser = null;
+let currentRole = null;
+
+// Map
+let map, markersLayer;
+function initMap() {
+  map = L.map('map').setView([20.5937, 78.9629], 5);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+  markersLayer = L.layerGroup().addTo(map);
+}
+function updateMap(items) {
+  markersLayer.clearLayers();
+  items.forEach(item=>{
+    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(item.location)}`)
+      .then(res=>res.json())
+      .then(data=>{
+        if(data[0]){
+          const lat=data[0].lat, lon=data[0].lon;
+          L.marker([lat,lon]).bindPopup(`<b>${item.name} (${item.type})</b><br>${item.desc}<br>Contact: ${item.contact}<br>Role: ${item.role}`).addTo(markersLayer);
+        }
+      });
+  });
+}
+
+// Auth
+function register() {
+  let users=JSON.parse(localStorage.getItem('users'))||[];
+  const emailVal=email.value, passVal=password.value, roleVal=document.getElementById('role').value;
+  if(users.find(u=>u.email===emailVal)) return alert("User exists");
+  users.push({email:emailVal,password:passVal,role:roleVal});
+  localStorage.setItem('users', JSON.stringify(users));
+  alert("Registered!");
+}
+function login() {
+  let users=JSON.parse(localStorage.getItem('users'))||[];
+  const emailVal=email.value, passVal=password.value;
+  let user=users.find(u=>u.email===emailVal && u.password===passVal);
+  if(!user) return alert("Invalid login");
+  currentUser=emailVal; currentRole=user.role;
+  localStorage.setItem('session',emailVal);
+  localStorage.setItem('role',currentRole);
+  showApp();
+}
+function logout() { localStorage.removeItem('session'); localStorage.removeItem('role'); location.reload(); }
+function checkSession() {
+  const s=localStorage.getItem('session'), r=localStorage.getItem('role');
+  if(s){currentUser=s;currentRole=r;showApp();}
+}
+
+// App
+function showApp() {
+  auth.classList.add('hidden'); profilePage.classList.add('hidden'); app.classList.remove('hidden');
+  document.getElementById('roleDisplay').textContent=currentRole;
+  loadItems();
+  initMap();
+}
+
+// Profile
+function showProfilePage() {
+  app.classList.add('hidden'); profilePage.classList.remove('hidden');
+  profileEmail.textContent=currentUser;
+  profileRole.textContent=currentRole;
+  fetch(`${backendUrl}/items/${currentUser}`).then(res=>res.json()).then(data=>{
+    profileItems.innerHTML='';
+    data.forEach(item=>{
+      const div=document.createElement('div'); div.className='border p-2 rounded-lg';
+      div.textContent=`${item.name} (${item.type}) - ${item.location}`;
+      profileItems.appendChild(div);
+    });
+  });
+}
+function closeProfilePage(){ profilePage.classList.add('hidden'); showApp(); }
+
+// Convert file to base64
+function toBase64(file){ return new Promise((res,rej)=>{ const r=new FileReader(); r.readAsDataURL(file); r.onload=()=>res(r.result); r.onerror=e=>rej(e); }); }
+
+// Add item
+async function addItem() {
+  const name=name.value, desc=desc.value, type=type.value, location=location.value, contact=contact.value, file=image.files[0];
+  if(!name||!desc||!file||!location||!contact) return alert("Fill all fields");
+  const img=await toBase64(file);
+  await fetch(`${backendUrl}/items`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,desc,type,location,contact,user:currentUser,role:currentRole,image:img})});
+  name.value=''; desc.value=''; location.value=''; contact.value='';
+  loadItems();
+}
+
+// Load items
+function loadItems() {
+  const container=document.getElementById('items'), search=document.getElementById('search').value.toLowerCase();
+  container.innerHTML='';
+  fetch(`${backendUrl}/items`).then(res=>res.json()).then(data=>{
+    const filtered=data.filter(i=>i.name.toLowerCase().includes(search)||i.desc.toLowerCase().includes(search)||i.location.toLowerCase().includes(search));
+    filtered.reverse().forEach(item=>{
+      const div=document.createElement('div'); div.className="bg-white rounded-2xl shadow overflow-hidden";
+      div.innerHTML=`<img src="${item.image}" class="w-full h-40 object-cover">
+        <div class="p-4">
+        <div class="flex justify-between"><h3 class="font-bold">${item.name}</h3><span class="text-xs px-2 py-1 rounded-full ${item.type==='lost'?'bg-red-100 text-red-600':'bg-green-100 text-green-600'}">${item.type}</span></div>
+        <p class="text-sm mt-1">${item.desc}</p>
+        <p class="text-xs text-gray-500 mt-1"><i class="fas fa-map-marker-alt"></i> ${item.location}</p>
+        <p class="text-xs text-gray-500"><i class="fas fa-phone"></i> ${item.contact}</p>
+        <p class="text-xs text-gray-400">Role: ${item.role}</p>
+        </div>`;
+      container.appendChild(div);
+    });
+    updateMap(filtered);
+  });
+}
+
+checkSession();
+</script>
+
+</body>
+</html>
